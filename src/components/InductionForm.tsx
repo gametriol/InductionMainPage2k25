@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, X, Plus, Check } from 'lucide-react';
 import SkillSelector from './SkillSelector';
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface FormData {
   name: string;
@@ -40,12 +44,60 @@ const InductionForm: React.FC = () => {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [user, setUser] = useState<User | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [imagePreview, setImagePreview] = useState<string>('');
 
   const countWords = (text: string): number => {
     return text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+  };
+
+  // Initialize Firebase client app (safe to call on client only)
+  useEffect(() => {
+    try {
+      const firebaseConfig = {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID,
+      };
+
+      // Basic guard - only initialize if apiKey exists
+      if (firebaseConfig.apiKey) {
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        onAuthStateChanged(auth, (u) => setUser(u));
+      }
+    } catch (err) {
+      // ignore if firebase not configured in env
+      console.warn('Firebase not configured or failed to initialize', err);
+    }
+  }, []);
+
+  const signInWithGoogle = async () => {
+    try {
+      const firebaseConfigExists = import.meta.env.VITE_FIREBASE_API_KEY;
+      if (!firebaseConfigExists) throw new Error('Firebase config missing. Set VITE_FIREBASE_API_KEY etc. in .env');
+
+      const app = initializeApp({
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID,
+      });
+
+      const auth = getAuth(app);
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      setUser(result.user);
+      // set email into formData and clear email errors
+      handleInputChange('email', result.user.email || '');
+      setErrors(prev => ({ ...prev, email: '' }));
+    } catch (err: any) {
+      console.error('Sign-in error', err);
+      toast.error(`Sign-in failed: ${err?.message || err}`);
+    }
   };
 
   const validateField = (name: keyof FormData, value: any): string => {
@@ -239,8 +291,7 @@ const InductionForm: React.FC = () => {
         setIsSubmitted(true);
       } catch (err: any) {
         console.error('Submission error:', err);
-        // Show a simple alert. Could be improved to show inline error.
-        alert(`Submission failed: ${err.message || err}`);
+        toast.error(`Submission failed: ${err?.message || err}`);
       } finally {
         setIsSubmitting(false);
       }
@@ -271,6 +322,7 @@ const InductionForm: React.FC = () => {
 
   return (
     <div className="min-h-screen py-12 px-6">
+      <ToastContainer />
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12 pt-12">
           <h1 className="text-4xl font-bold mb-4">
@@ -280,6 +332,36 @@ const InductionForm: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Sign-in / auth area */}
+          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-700 text-center">
+            {!user ? (
+              <div>
+                <p className="text-gray-300 mb-4">Please sign in with Google to continue.</p>
+                <button
+                  type="button"
+                  onClick={signInWithGoogle}
+                  className="inline-flex items-center bg-white text-black font-semibold py-2 px-4 rounded-full hover:shadow-lg"
+                >
+                  <svg className="w-5 h-5 mr-2" viewBox="0 0 533.5 544.3" xmlns="http://www.w3.org/2000/svg">
+                    <path fill="#4285F4" d="M533.5 278.4c0-18.5-1.6-36.2-4.7-53.3H272v100.8h147.4c-6.4 34.7-25.7 64.1-54.7 83.6v69.4h88.3c51.6-47.6 81.5-117.7 81.5-200.5z"/>
+                    <path fill="#34A853" d="M272 544.3c73.7 0 135.6-24.4 180.8-66.2l-88.3-69.4c-24.6 16.5-56.2 26.2-92.5 26.2-71 0-131.3-47.9-152.9-112.2H27.3v70.5C72.4 487.9 165 544.3 272 544.3z"/>
+                    <path fill="#FBBC05" d="M119.1 323.2c-10.8-32.1-10.8-66.6 0-98.7V154h-91.8C7.8 199.5 0 234.7 0 272s7.8 72.5 27.3 118.1l91.8-66.9z"/>
+                    <path fill="#EA4335" d="M272 107.6c39.8 0 75.5 13.7 103.7 40.6l77.8-77.8C402.8 24.5 340.9 0 272 0 165 0 72.4 56.4 27.3 154l91.8 70.6C140.7 155.5 201 107.6 272 107.6z"/>
+                  </svg>
+                  Sign in with Google
+                </button>
+              </div>
+            ) : (
+              <div className="text-left">
+                <p className="text-gray-300">Signed in as</p>
+                <p className="text-white font-semibold">{user.displayName || user.email}</p>
+                <p className="text-sm text-gray-400 mt-1">Your email will be used for the application.</p>
+              </div>
+            )}
+          </div>
+          {/* Only show the rest of the form after user signs in */}
+          {user ? (
+          <>
           {/* Personal Information */}
           <div className="bg-gray-900 rounded-2xl p-8 border border-gray-700">
             <h2 className="text-2xl font-semibold mb-6 text-[#1DB954]">Personal Information</h2>
@@ -291,7 +373,8 @@ const InductionForm: React.FC = () => {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    disabled={!user}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300"
                   placeholder="Enter your full name"
                 />
@@ -305,7 +388,8 @@ const InductionForm: React.FC = () => {
                 <input
                   type="text"
                   value={formData.rollNo}
-                  onChange={(e) => handleInputChange('rollNo', e.target.value)}
+                    onChange={(e) => handleInputChange('rollNo', e.target.value)}
+                    disabled={!user}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300"
                   placeholder="10-digit roll number"
                   maxLength={10}
@@ -320,6 +404,7 @@ const InductionForm: React.FC = () => {
                 <select
                   value={formData.branch}
                   onChange={(e) => handleInputChange('branch', e.target.value)}
+                  disabled={!user}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300"
                 >
                   <option value="">Select branch</option>
@@ -343,6 +428,7 @@ const InductionForm: React.FC = () => {
                 <select
                   value={formData.year}
                   onChange={(e) => handleInputChange('year', e.target.value)}
+                  disabled={!user}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300"
                 >
                   <option value="">Select year</option>
@@ -367,7 +453,8 @@ const InductionForm: React.FC = () => {
                 <input
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                    disabled={!user}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300"
                   placeholder="+91 9876543210"
                 />
@@ -381,7 +468,9 @@ const InductionForm: React.FC = () => {
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    disabled={!user}
+                    readOnly={!!user}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300"
                   placeholder="your.email@example.com"
                 />
@@ -395,7 +484,8 @@ const InductionForm: React.FC = () => {
                 <input
                   type="text"
                   value={formData.residence}
-                  onChange={(e) => handleInputChange('residence', e.target.value)}
+                    onChange={(e) => handleInputChange('residence', e.target.value)}
+                    disabled={!user}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300"
                   placeholder="City, State"
                 />
@@ -409,7 +499,8 @@ const InductionForm: React.FC = () => {
                 <input
                   type="url"
                   value={formData.githubProfile}
-                  onChange={(e) => handleInputChange('githubProfile', e.target.value)}
+                    onChange={(e) => handleInputChange('githubProfile', e.target.value)}
+                    disabled={!user}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300"
                   placeholder="https://github.com/yourusername"
                 />
@@ -429,6 +520,7 @@ const InductionForm: React.FC = () => {
                 type="text"
                 value={formData.society}
                 onChange={(e) => handleInputChange('society', e.target.value)}
+                disabled={!user}
                 className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300"
                 placeholder="Enter your society (e.g., Flux or another)"
               />
@@ -441,6 +533,7 @@ const InductionForm: React.FC = () => {
               <textarea
                 value={formData.whyJoin}
                 onChange={(e) => handleInputChange('whyJoin', e.target.value)}
+                disabled={!user}
                 rows={5}
                 className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300 resize-vertical"
                 placeholder="Share your motivation, interests, and what you hope to contribute to Flux..."
@@ -466,6 +559,7 @@ const InductionForm: React.FC = () => {
                 <textarea
                   value={formData.softSkills}
                   onChange={(e) => handleInputChange('softSkills', e.target.value)}
+                  disabled={!user}
                   rows={4}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300 resize-vertical"
                   placeholder="Describe your soft skills such as leadership, communication, teamwork, problem solving, creativity, adaptability, time management, critical thinking, etc."
@@ -485,6 +579,7 @@ const InductionForm: React.FC = () => {
                 <textarea
                   value={formData.hardSkills}
                   onChange={(e) => handleInputChange('hardSkills', e.target.value)}
+                  disabled={!user}
                   rows={4}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300 resize-vertical"
                   placeholder="Describe your technical skills such as programming languages, frameworks, tools, technologies, etc."
@@ -504,6 +599,7 @@ const InductionForm: React.FC = () => {
                 <textarea
                   value={formData.strengths}
                   onChange={(e) => handleInputChange('strengths', e.target.value)}
+                  disabled={!user}
                   rows={4}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300 resize-vertical"
                   placeholder="Describe your key strengths and what makes you stand out."
@@ -523,6 +619,7 @@ const InductionForm: React.FC = () => {
                 <textarea
                   value={formData.weaknesses}
                   onChange={(e) => handleInputChange('weaknesses', e.target.value)}
+                  disabled={!user}
                   rows={4}
                   className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300 resize-vertical"
                   placeholder="Describe areas where you'd like to improve and grow."
@@ -556,10 +653,11 @@ const InductionForm: React.FC = () => {
                   }}
                   className="hidden"
                   id="image-upload"
+                  disabled={!user}
                 />
                 <label
-                  htmlFor="image-upload"
-                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white hover:border-[#1DB954] focus-within:border-[#1DB954] transition-colors duration-300 cursor-pointer flex items-center justify-center min-h-[48px] group"
+                  htmlFor={user ? 'image-upload' : undefined}
+                  className={`w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white ${!user ? 'cursor-not-allowed opacity-60' : 'hover:border-[#1DB954] focus-within:border-[#1DB954]'} transition-colors duration-300 flex items-center justify-center min-h-[48px] group`}
                 >
                   <Upload size={20} className="mr-2 text-gray-400 group-hover:text-[#1DB954] transition-colors duration-300" />
                   <span className="text-gray-400 group-hover:text-white transition-colors duration-300">
@@ -600,7 +698,7 @@ const InductionForm: React.FC = () => {
           <div className="text-center pt-8">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={!user || isSubmitting}
               className="bg-[#1DB954] hover:bg-[#1ed760] disabled:bg-gray-600 text-black font-bold py-4 px-12 rounded-full text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-[#1DB954]/25 disabled:transform-none disabled:shadow-none"
             >
               {isSubmitting ? (
@@ -616,6 +714,8 @@ const InductionForm: React.FC = () => {
               )}
             </button>
           </div>
+          </>
+          ) : null}
         </form>
       </div>
     </div>
