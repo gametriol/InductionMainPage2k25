@@ -33,7 +33,7 @@ const InductionForm: React.FC = () => {
     year: '',
     phone: '',
     email: '',
-    society: 'Flux',
+    society: '',
     whyJoin: '',
     softSkills: '',
     hardSkills: '',
@@ -84,7 +84,14 @@ const InductionForm: React.FC = () => {
       if (firebaseConfig.apiKey) {
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
-        onAuthStateChanged(auth, (u) => setUser(u));
+        const unsubscribe = onAuthStateChanged(auth, (u) => {
+          setUser(u);
+          if (u?.email) {
+            setFormData(prev => ({ ...prev, email: u.email || '' }));
+            setErrors(prev => ({ ...prev, email: '' }));
+          }
+        });
+        return unsubscribe;
       }
     } catch (err) {
       // ignore if firebase not configured in env
@@ -188,7 +195,7 @@ const InductionForm: React.FC = () => {
             return 'Please select a .jpg, .jpeg, or .png file';
           }
           
-          const maxSize = 1024 * 1024; // 1MB
+          const maxSize = 1024 * 1024;
           if (value.size > maxSize) {
             return 'Image size must be less than 1MB';
           }
@@ -271,7 +278,6 @@ const InductionForm: React.FC = () => {
           if (!uploadedImageUrl) throw new Error('No secure_url returned from Cloudinary');
         }
 
-        // Build payload for API
         const payload: Record<string, any> = {
           name: formData.name,
           rollNo: formData.rollNo,
@@ -304,7 +310,7 @@ const InductionForm: React.FC = () => {
           throw new Error(`Server responded with ${res.status}: ${text}`);
         }
 
-        // Success
+        
         setIsSubmitted(true);
       } catch (err: any) {
         console.error('Submission error:', err);
@@ -452,6 +458,24 @@ const InductionForm: React.FC = () => {
   </div>
 )}
 
+<<<<<<< HEAD
+=======
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Showcase Your work (GitHub, Portfolio, etc.)
+                </label>
+                <input
+                  type="url"
+                  value={formData.githubProfile}
+                    onChange={(e) => handleInputChange('githubProfile', e.target.value)}
+                    disabled={!user}
+                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300"
+                  placeholder="link to your work"
+                />
+              </div>
+            </div>
+          </div>
+>>>>>>> 853409ed6cff111c8979c62f9d80530f3afe8626
 
             {/* Only show the rest of the form after user signs in */}
             {user ? (
