@@ -18,8 +18,7 @@ interface FormData {
   whyJoin: string;
   softSkills: string;
   hardSkills: string;
-  strengths: string;
-  weaknesses: string;
+  // strengths and weaknesses removed
   githubProfile: string;
   residence: string;
   imageFile: File | null;
@@ -37,8 +36,7 @@ const InductionForm: React.FC = () => {
     whyJoin: '',
     softSkills: '',
     hardSkills: '',
-    strengths: '',
-    weaknesses: '',
+      // strengths and weaknesses removed
     githubProfile: '',
     residence: '',
     imageFile: null
@@ -169,8 +167,6 @@ const InductionForm: React.FC = () => {
         break;
       case 'softSkills':
       case 'hardSkills':
-      case 'strengths':
-      case 'weaknesses':
         const words = countWords(value);
         if (!value || value.trim().length === 0) {
           return 'This field is required';
@@ -287,10 +283,6 @@ const InductionForm: React.FC = () => {
           email: formData.email,
           society: formData.society,
           whyJoin: formData.whyJoin,
-          softSkills: formData.softSkills,
-          hardSkills: formData.hardSkills,
-          strengths: formData.strengths,
-          weaknesses: formData.weaknesses,
           githubProfile: formData.githubProfile,
           residence: formData.residence,
           imageUrl: uploadedImageUrl || undefined
@@ -314,7 +306,20 @@ const InductionForm: React.FC = () => {
         setIsSubmitted(true);
       } catch (err: any) {
         console.error('Submission error:', err);
-        toast.error(`Submission failed: ${err?.message || err}`);
+        // Previous raw error toast commented out to avoid leaking backend/internal messages
+        // toast.error(`Submission failed: ${err?.message || err}`);
+
+        // Tailored user-facing messages
+        const msg = (err && (err.message || String(err))).toLowerCase();
+        if (msg.includes('already exists') || msg.includes('duplicate') || msg.includes('unique')) {
+          toast.error('An application with this email or roll number already exists. If you believe this is an error, contact support.');
+        } else if (msg.includes('image upload failed') || msg.includes('no secure_url') || msg.includes('cloudinary')) {
+          toast.error('Image upload failed. Please try again or choose a different image.');
+        } else if (msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout')) {
+          toast.error('Network error. Please check your connection and try again.');
+        } else {
+          toast.error('Submission failed. Please try again later.');
+        }
       } finally {
         setIsSubmitting(false);
       }
@@ -458,24 +463,6 @@ const InductionForm: React.FC = () => {
   </div>
 )}
 
-<<<<<<< HEAD
-=======
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Showcase Your work (GitHub, Portfolio, etc.)
-                </label>
-                <input
-                  type="url"
-                  value={formData.githubProfile}
-                    onChange={(e) => handleInputChange('githubProfile', e.target.value)}
-                    disabled={!user}
-                  className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300"
-                  placeholder="link to your work"
-                />
-              </div>
-            </div>
-          </div>
->>>>>>> 853409ed6cff111c8979c62f9d80530f3afe8626
 
             {/* Only show the rest of the form after user signs in */}
             {user ? (
@@ -710,45 +697,7 @@ const InductionForm: React.FC = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Strengths *
-                    </label>
-                    <textarea
-                      value={formData.strengths}
-                      onChange={(e) => handleInputChange('strengths', e.target.value)}
-                      disabled={!user}
-                      rows={4}
-                      className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300 resize-vertical"
-                      placeholder="Describe your key strengths and what makes you stand out."
-                    />
-                    <div className="flex justify-between text-sm text-gray-400 mt-1">
-                      <span>{errors.strengths && <span className="text-red-400">{errors.strengths}</span>}</span>
-                      <span className={countWords(formData.strengths) > 100 ? 'text-red-400' : ''}>
-                        {countWords(formData.strengths)}/100 words
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Areas for Improvement *
-                    </label>
-                    <textarea
-                      value={formData.weaknesses}
-                      onChange={(e) => handleInputChange('weaknesses', e.target.value)}
-                      disabled={!user}
-                      rows={4}
-                      className="w-full bg-gray-800/80 backdrop-blur-sm border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-[#1DB954] focus:outline-none transition-colors duration-300 resize-vertical"
-                      placeholder="Describe areas where you'd like to improve and grow."
-                    />
-                    <div className="flex justify-between text-sm text-gray-400 mt-1">
-                      <span>{errors.weaknesses && <span className="text-red-400">{errors.weaknesses}</span>}</span>
-                      <span className={countWords(formData.weaknesses) > 100 ? 'text-red-400' : ''}>
-                        {countWords(formData.weaknesses)}/100 words
-                      </span>
-                    </div>
-                  </div>
+                  {/* Strengths & Weaknesses fields removed */}
                 </div>
               </div>
 
